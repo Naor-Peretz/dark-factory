@@ -165,6 +165,7 @@ app cannot imitate.
 | Human gates are **prompt-based, not enforced** | Do not claim a security boundary; the Gatekeeper is a convention |
 | Approval waits count toward `turn_timeout_s` | Set `approvals.wait_timeout_s` below `turn_timeout_s` |
 | Docs version drift | Always introspect the installed 9.3.0, never trust a doc snippet |
+| **4 concurrent Claude agents on one Max 5x subscription** | Real rate-limit risk, worst exactly when all four are active mid-cycle. Move the Verifier to `VERIFIER_ADAPTER=gemini` (free tier): takes 25% off the subscription *and* satisfies the cross-family-critic criterion. Consider the Gatekeeper too. |
 
 **Open — needs a decision or a lookup:**
 - [ ] **The actual challenge spec.** Not on Luma. It's on the HackerSquad dashboard
