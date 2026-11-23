@@ -243,9 +243,40 @@ working directory (it would be readable, and a tool result could post the API ke
 account, no room, and no model key.** That is why the crew could be built before the
 account exists, and it means a broken handoff is caught in 0.2s instead of in a live room.
 
+### The independent oracle — added after the first pass
+
+`acceptance/` holds a test suite the **Verifier owns and the Builder cannot see**. The
+Builder's `cwd` is `workspace/repo` and nothing else; the Verifier gets the same `cwd`
+plus `acceptance/` through `ClaudeCLIOptions(add_dirs=…)`. Three tests assert that
+asymmetry so it cannot quietly regress.
+
+This is the difference between a Verifier with teeth and four agents agreeing with each
+other. A critic that can read the author's tests is not an independent check; one that
+can edit them is no check at all. The oracle also probes what a Builder writing its own
+tests would plausibly miss — a *shared global bucket* that satisfies "the 11th request is
+throttled" while violating the per-IP constraint, and a `Retry-After` that exists but
+isn't a plausible number.
+
+**The vacuous pass.** With no limiter at all, the oracle reports 3 failed / 4 passed —
+and those four pass for the wrong reason ("the budget is not exceeded" trivially holds
+when nothing counts requests). A rising pass count is not progress. The Verifier's prompt
+warns about this explicitly, and the Gatekeeper's block-by-default stance is what catches
+it if the Verifier reports it as progress anyway. Watch for this in the live run; it is
+the most likely way the crew talks itself into a false green.
+
+### The demo target
+
+`target/` is the tracked pristine checkout (a small Flask auth service with **no** rate
+limiting, 5 passing tests). `scripts/seed_workspace.py` resets `workspace/repo` from it,
+so every cycle starts from a known state. Verified: baseline 5/5 pass, oracle 3 fail.
+
 ### Next
 
-1. BAND account + `scripts/register_agents.py` (needs one `band_u_…` user key)
-2. The real challenge spec — blocked on dashboard access (extension not connected)
-3. Live room, four processes, first end-to-end cycle on the placeholder spec
-4. Then swap the placeholder for the real challenge
+1. BAND account + four manual registrations → `scripts/check_config.py` (`docs/SETUP.md`)
+2. The real challenge spec — **blocked**: Chrome extension will not register with the
+   account despite being installed, native host running, and claude.ai signed in. Not
+   worth more time; paste the text instead.
+3. `VERIFIER_ADAPTER=gemini` + a free aistudio.google.com key — cross-family critic *and*
+   relieves the Max 5x subscription (see the rate-limit row above)
+4. Live room, four processes, first end-to-end cycle on the placeholder spec
+5. Then swap the placeholder for the real challenge

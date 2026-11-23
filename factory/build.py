@@ -26,6 +26,10 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 # agent_config.yaml, or Claude Code can read the API key and a tool result can
 # post it into the room.
 WORKSPACE = REPO_ROOT / "workspace" / "repo"
+# The Verifier's independent oracle. Deliberately OUTSIDE the Builder's cwd: a critic
+# that can read the author's tests is not an independent check, and one that can edit
+# them is no check at all. Supplied to the Verifier alone via the CLI's add_dirs.
+ACCEPTANCE = REPO_ROOT / "acceptance"
 
 EMIT_ALL = (Emit.TOOL_CALLS, Emit.THOUGHTS, Emit.USAGE)
 
@@ -46,6 +50,10 @@ def adapter_for(role: Role, prompt: str):
         else:
             # Real enforcement, not just prompt discipline: plan mode cannot edit files.
             cfg["permission_mode"] = "plan"
+        if role.key == "verifier":
+            from band.adapters.claude_sdk import ClaudeCLIOptions
+
+            cfg["cli"] = ClaudeCLIOptions(add_dirs=(str(ACCEPTANCE),))
         return ClaudeSDKAdapter(ClaudeSDKAdapterConfig(**cfg), emit=EMIT_ALL)
 
     if kind == "codex":

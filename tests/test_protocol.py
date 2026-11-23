@@ -239,3 +239,37 @@ def test_spec_criteria_parse_from_markdown():
 def test_spec_with_no_criteria_section_is_empty_not_an_error():
     s = Spec(id="d", rev=1, path=Path("x"), text="# Just prose\n\nno criteria here")
     assert s.criteria == []
+
+
+# --- the independent oracle --------------------------------------------------
+
+
+def test_only_the_verifier_can_reach_the_acceptance_oracle():
+    """A critic that reads the author's tests is not an independent check.
+    A critic that can edit them is no check at all."""
+    from factory import build as build_mod
+    from factory.roles import ARCHITECT, GATEKEEPER
+
+    acceptance = str(build_mod.ACCEPTANCE)
+    verifier_prompt = __import__("factory.prompts", fromlist=["build"]).build(VERIFIER)
+    assert acceptance in verifier_prompt, "the Verifier must know where its oracle is"
+
+    for role in (BUILDER, ARCHITECT, GATEKEEPER):
+        other = __import__("factory.prompts", fromlist=["build"]).build(role)
+        assert acceptance not in other, f"{role.name} must not learn the oracle's path"
+
+
+def test_acceptance_oracle_lives_outside_the_builders_checkout():
+    from factory.build import ACCEPTANCE, WORKSPACE
+
+    assert ACCEPTANCE.exists(), "the oracle must exist"
+    assert WORKSPACE not in ACCEPTANCE.parents and ACCEPTANCE != WORKSPACE, (
+        "the oracle must not be inside the Builder's cwd, or the Builder could edit it"
+    )
+
+
+def test_verifier_prompt_warns_about_the_vacuous_pass():
+    """Before a feature exists, several oracle tests pass for the wrong reason.
+    A rising pass count is not progress, and the Verifier must know that."""
+    prompt = __import__("factory.prompts", fromlist=["build"]).build(VERIFIER)
+    assert "vacuous" in prompt.lower()

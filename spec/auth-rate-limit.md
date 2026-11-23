@@ -21,6 +21,9 @@ attempts are throttled without affecting legitimate traffic.
 - The limiter lives in middleware. Do not modify the auth handler itself.
 - Per-IP limiting. No shared global bucket.
 - In-memory is acceptable; no new infrastructure dependency.
+- The window length and request budget must stay constructor parameters of
+  `create_app(window_seconds=60, max_requests=10)`, so the behavior is testable without
+  waiting a real minute. Do not hard-code 60.
 
 ## Acceptance criteria
 
@@ -29,7 +32,8 @@ attempts are throttled without affecting legitimate traffic.
 - the limiter resets after the 60s window elapses, and the next request succeeds
 - a 429 response carries a Retry-After header with the remaining seconds
 - two different IPs have independent budgets
-- there is a test for each criterion above and the suite passes from a clean checkout
+- the existing suite in `tests/` still passes from a clean checkout
+- valid credentials still succeed while within budget
 
 ## Out of scope
 
