@@ -169,3 +169,52 @@ that currently makes it a clean judge: it has no `cwd` and cannot reach the code
 **Deliberately left open pending a decision** — the honest state is that the factory can
 now detect a tree that shifts mid-verification, and cannot yet detect one that shifts
 mid-verdict.
+
+---
+
+## Run 5 — 14:56 · all four fixes hold, and the Gatekeeper finds a defect in the setup
+
+First run in a **fresh room** (no stale history) against a pristine workspace. Clean
+chain: **Architect → Builder → Verifier → Gatekeeper**. No mute planner, no approval
+refusals, no notification loop. All four earlier fixes confirmed under live conditions.
+
+**The fingerprint worked.** The Verifier stamped both readings and the Gatekeeper
+checked them before reading a single result:
+
+> Fingerprint check passed: the two WORKSPACE-FINGERPRINT readings are both
+> b2f4e5dd8071203a, so the tree held still. The block rests on the findings below, not
+> on the fingerprint.
+
+Ground truth this time: the Builder's limiter passed **10/10 acceptance and 9/9 repo
+tests**. Genuinely complete work.
+
+It was still **BLOCKED**, on three findings, and all three were right:
+
+1. **Criterion 6 is unmeasurable as set up.** It says "from a clean checkout", but
+   `workspace/repo` had no git history, so no checkout could be clean. The Verifier ran
+   in the working tree, which also contains the Builder's *new* tests — so "9 passed"
+   never showed the *original* suite still passing.
+2. **No raw output was pasted.** The Verifier gave counts, test names and exit codes. A
+   summary is a claim; block-by-default means claims do not count.
+3. **Vacuity was not demonstrated.** No evidence that the passing tests could have failed.
+
+Finding 1 is a defect in **my** scaffolding, not the agents'. The criterion was written
+to be checkable and then placed in an environment where it could not be checked.
+
+### Fixes
+
+- `scripts/seed_workspace.py` now gives the checkout its own git repo with a pristine
+  baseline commit. `git stash -u && pytest && git stash pop` proves the original suite;
+  `git diff HEAD -- app.py` proves the handler is untouched. Both were previously
+  unprovable, and the Gatekeeper had flagged the diff gap back in run 3 as well.
+- The Verifier's prompt now carries both recipes, requires the **raw transcript** rather
+  than a summary, and requires saying why each test could have failed.
+- The fingerprint ignores `.git`, so a baseline commit does not look like a change. Tested.
+
+### The pattern across five runs
+
+The Gatekeeper has now blocked two builds that passed every test, and been right both
+times — once finding a hole in the acceptance oracle, once finding that a criterion was
+unmeasurable. Neither was a code defect. Both were defects in how the work was being
+*proved*, which is exactly what a gate is for and exactly what a crew of agents
+agreeing with each other would have waved through.

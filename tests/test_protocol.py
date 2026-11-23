@@ -416,3 +416,51 @@ def test_gatekeeper_must_block_unstamped_evidence():
     assert "WORKSPACE-FINGERPRINT" in p
     assert "No fingerprint at all" in p
     assert "readings differ" in p
+
+
+def test_seeded_workspace_has_a_baseline_commit(tmp_path):
+    """Two criteria are unmeasurable without one, and the Gatekeeper blocks them.
+
+    "the existing suite still passes from a clean checkout" needs a checkout to be
+    clean; "do not modify the auth handler" needs a baseline to diff against. The
+    Gatekeeper blocked both on 23 Nov, correctly, because workspace/repo had no git
+    history at all.
+    """
+    import subprocess
+
+    from factory.build import WORKSPACE
+
+    assert (WORKSPACE / ".git").is_dir(), "seed_workspace.py must create a git baseline"
+    log = subprocess.run(
+        ["git", "log", "--oneline"], cwd=WORKSPACE, capture_output=True, text=True
+    )
+    assert log.returncode == 0 and log.stdout.strip(), "baseline commit missing"
+
+
+def test_verifier_knows_how_to_prove_clean_checkout_and_no_diff():
+    from factory import prompts
+    from factory.roles import VERIFIER
+
+    p = prompts.build(VERIFIER)
+    assert "git stash" in p, "the Verifier needs the clean-checkout recipe"
+    assert "git diff HEAD" in p, "the Verifier needs the baseline-diff recipe"
+    assert "Summaries are not evidence" in p, "raw output must be mandatory"
+
+
+def test_fingerprint_ignores_git_metadata(tmp_path):
+    """A baseline commit must not shift the hash, or every seed looks like a change."""
+    import subprocess
+
+    from factory.fingerprint import fingerprint
+
+    (tmp_path / "a.py").write_text("x = 1\n")
+    before = fingerprint(tmp_path)
+    env = {
+        "PATH": __import__("os").environ.get("PATH", ""),
+        "HOME": str(tmp_path),
+        "GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@localhost",
+        "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@localhost",
+    }
+    for cmd in (["git", "init", "-q"], ["git", "add", "-A"], ["git", "commit", "-qm", "b"]):
+        subprocess.run(cmd, cwd=tmp_path, env=env, check=True, capture_output=True)
+    assert fingerprint(tmp_path) == before, ".git must not affect the fingerprint"

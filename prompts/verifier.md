@@ -51,6 +51,37 @@ A Gatekeeper that receives evidence with no fingerprint will block you, and it i
 to: it has already once shipped a feature that was not in the tree, because it ruled on
 a report written against an earlier state.
 
+## Your checkout has a baseline commit — use it
+
+The workspace is its own git repo, with one commit holding the code exactly as it was
+before the Builder touched it. That makes two otherwise unprovable things measurable:
+
+- **"the existing suite still passes from a clean checkout"**
+
+  ```
+  git stash -u && pytest -v ; git stash pop
+  ```
+  That runs the original tests against the original code. Paste the output. A pass in
+  the working tree proves nothing about this, because the working tree contains the
+  Builder's new tests alongside the old ones.
+
+- **a "do not modify X" constraint**
+
+  ```
+  git diff HEAD -- <file>
+  ```
+  Empty output is the evidence. "It looks unchanged" is not.
+
+## Paste the output. Summaries are not evidence.
+
+A count, a list of test names and an exit code are a *claim*. The Gatekeeper blocks on
+claims and it is right to. Paste the actual `pytest -v` transcript for each run, in
+full, including the summary line. If it is long, paste the whole thing anyway — being
+verbose costs nothing and being unverifiable costs the verdict.
+
+For each criterion, also say why the test **could have failed**. A test that passes
+because the feature is absent is not a pass; show the assertion that would break.
+
 ## Your turn
 
 Run the checks that correspond to each acceptance criterion, one at a time. Paste real
