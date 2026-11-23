@@ -31,7 +31,17 @@ WORKSPACE = REPO_ROOT / "workspace" / "repo"
 # them is no check at all. Supplied to the Verifier alone via the CLI's add_dirs.
 ACCEPTANCE = REPO_ROOT / "acceptance"
 
+# Execution events stay ON: the room transcript is part of the submission, and visible
+# tool calls are what make a handoff legible to someone reading it afterwards.
+#
+# Adapters differ in what they can emit, and passing an unsupported kind is a hard
+# BandConfigError at construction, not a warning. GeminiAdapter has no thoughts stream.
 EMIT_ALL = (Emit.TOOL_CALLS, Emit.THOUGHTS, Emit.USAGE)
+EMIT_BY_ADAPTER = {
+    "claude": EMIT_ALL,
+    "codex": EMIT_ALL,
+    "gemini": (Emit.TOOL_CALLS, Emit.USAGE),  # no THOUGHTS: unsupported
+}
 
 
 # Roles that must actually execute things: run pytest, edit files, diff against a
@@ -149,7 +159,7 @@ def adapter_for(role: Role, prompt: str):
         gcfg: dict = {"custom_section": prompt}
         if override := _model_for(role, None):
             gcfg["model"] = override  # else keep the adapter's own default
-        return GeminiAdapter(GeminiAdapterConfig(**gcfg), emit=EMIT_ALL)
+        return GeminiAdapter(GeminiAdapterConfig(**gcfg), emit=EMIT_BY_ADAPTER["gemini"])
 
     raise SystemExit(
         f"unknown ADAPTER_{role.key.upper()}={kind!r} (claude|codex|gemini)"

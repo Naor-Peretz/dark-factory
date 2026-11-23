@@ -511,3 +511,30 @@ def test_gemini_without_a_key_fails_with_a_useful_message(monkeypatch):
     monkeypatch.delenv("GOOGLE_API_KEY", raising=False)
     with _pytest.raises(SystemExit, match="GEMINI_API_KEY"):
         build_mod.adapter_for(GATEKEEPER, "prompt")
+
+
+def test_emit_set_respects_what_each_adapter_supports():
+    """Passing an unsupported emit kind is a hard error at construction.
+
+    GeminiAdapter has no thoughts stream, so the Claude emit set crashes it with
+    BandConfigError rather than degrading. Keep the per-adapter mapping honest.
+    """
+    from band import Emit
+
+    from factory.build import EMIT_ALL, EMIT_BY_ADAPTER
+
+    assert Emit.THOUGHTS in EMIT_BY_ADAPTER["claude"]
+    assert Emit.THOUGHTS not in EMIT_BY_ADAPTER["gemini"], "Gemini cannot emit thoughts"
+    for kind, emits in EMIT_BY_ADAPTER.items():
+        assert Emit.TOOL_CALLS in emits, f"{kind} must show tool calls in the room"
+        assert set(emits) <= set(EMIT_ALL)
+
+
+def test_gemini_gatekeeper_builds_when_a_key_is_present(monkeypatch):
+    from factory import build as build_mod
+    from factory.roles import GATEKEEPER
+
+    monkeypatch.setenv("ADAPTER_GATEKEEPER", "gemini")
+    monkeypatch.setenv("GEMINI_API_KEY", "test-key-not-real")
+    adapter = build_mod.adapter_for(GATEKEEPER, "prompt")
+    assert type(adapter).__name__ == "GeminiAdapter"
