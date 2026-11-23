@@ -26,3 +26,7 @@ workspace/repo/
 *.png
 *.yml.snapshot
 dash.yml
+
+# Browser-automation snapshots: these capture credentials shown on screen
+*.yml
+!pytest.ini

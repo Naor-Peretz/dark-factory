@@ -77,3 +77,20 @@ no mention.
   work in `workspace/repo/` precisely so it doesn't — otherwise Claude Code can read the
   file and a tool result could post your API key into the room.
 - Key prefixes: `band_a_` = agent key (what you want here), `band_u_` = user key (Enterprise).
+
+## Secret hygiene
+
+`agent_config.yaml` is mode 600 and gitignored. It is the only file that holds agent keys.
+
+Two guards, because this repo is public:
+
+- `.gitignore` excludes `*.yml` at the repo root. Browser-automation snapshots capture
+  whatever is on screen — including the "Agent Created Successfully" dialog with the key
+  in plaintext — so they must never be committed.
+- `.git/hooks/pre-commit` blocks any staged change containing a `band_a_` / `band_u_`
+  key or a common provider secret, and redacts the match when reporting it. Hooks are
+  not cloned, so re-install it after a fresh clone:
+
+  ```bash
+  cp docs/pre-commit.sample .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit
+  ```

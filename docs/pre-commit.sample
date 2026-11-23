@@ -1,0 +1,11 @@
+#!/bin/sh
+# Block commits containing BAND agent keys, user keys, or common provider secrets.
+# This repo is public; a leaked band_a_ key lets anyone impersonate a factory agent.
+if git diff --cached -U0 | grep -nE '^\+.*(band_[au]_[A-Za-z0-9_-]{10}|sk-[A-Za-z0-9]{20}|AIza[A-Za-z0-9_-]{30}|gh[pous]_[A-Za-z0-9]{30})' >/dev/null 2>&1; then
+  echo "pre-commit: BLOCKED — a staged change looks like it contains a secret." >&2
+  echo "Matches:" >&2
+  git diff --cached -U0 | grep -nE '^\+.*(band_[au]_[A-Za-z0-9_-]{10}|sk-[A-Za-z0-9]{20}|AIza[A-Za-z0-9_-]{30}|gh[pous]_[A-Za-z0-9]{30})' \
+    | sed -E 's/(band_[au]_|sk-|AIza|gh[pous]_)[A-Za-z0-9_-]*/\1<redacted>/g' >&2
+  echo "If this is a false positive: git commit --no-verify" >&2
+  exit 1
+fi
