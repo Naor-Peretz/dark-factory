@@ -19,12 +19,15 @@ family from Builder so the critic is not the author's own judgment.
 
 ```bash
 python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
-cp agent_config.yaml.example agent_config.yaml   # fill from app.band.ai
-cp .env.example .env                             # model provider keys
+cp agent_config.yaml.example agent_config.yaml
+.venv/bin/python scripts/check_config.py          # validates + probes credentials
 ```
 
-Then register four agents at app.band.ai (Agents → Connect remote agent; the API key is
-shown only once), create a room, and add all four.
+Full walkthrough, including the four agent registrations: **[docs/SETUP.md](docs/SETUP.md)**.
+
+No model API key is needed — all four agents authenticate off the local `claude login`
+subscription. `.env` is only required if you point the Verifier at another model family
+(`VERIFIER_ADAPTER=gemini|codex`).
 
 ## Layout
 

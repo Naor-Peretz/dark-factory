@@ -1,7 +1,17 @@
 """Register the four factory agents and write agent_config.yaml in one shot.
 
-Needs one BAND *user* key (band_u_...) from app.band.ai, in BAND_API_KEY.
-Beats clicking through four dialogs and copying four API keys that each display once.
+!! ENTERPRISE ONLY -- THIS WILL NOT WORK ON A FREE PLAN !!
+
+This calls POST /api/v1/me/agents/register (the Human API) with a user key
+(band_u_...). docs.band.ai/api/human-api states that user API key access requires an
+Enterprise plan; a free account gets 403 plan_required. Register-only scope is not
+documented as exempt.
+
+On a free plan, register the four agents by hand instead:
+  app.band.ai -> Agents -> Connect remote agent, once per role,
+then fill agent_config.yaml and run scripts/check_config.py to validate.
+
+Kept because it is the right path the moment the account is on a paid plan.
 
     BAND_API_KEY=band_u_... .venv/bin/python scripts/register_agents.py
 """
@@ -31,6 +41,10 @@ DESCRIPTIONS = {
 
 async def main() -> int:
     load_dotenv()
+    if os.environ.get("I_HAVE_ENTERPRISE") != "1":
+        print(__doc__.split("!!")[1].strip(), file=sys.stderr)
+        print("\nRefusing to run. Set I_HAVE_ENTERPRISE=1 to override.", file=sys.stderr)
+        return 2
     key = os.environ.get("BAND_API_KEY")
     if not key:
         print("BAND_API_KEY not set (need a band_u_... user key from app.band.ai)", file=sys.stderr)
