@@ -159,7 +159,7 @@ app cannot imitate.
 
 | Risk | Mitigation |
 |---|---|
-| **Free-plan room retention is ~2 weeks** | Record the room walkthrough **early**, with execution events ON. Deadline is Nov 29. |
+| ~~Free-plan room retention~~ | **Not a risk.** Room created 23 Nov, deadline 29 Nov — well inside ~2 weeks. The real constraint is the Friday sundown cutoff (see Schedule). |
 | Turn ends without a tool call → silent failure | Restate rule 2 in every prompt; keep `report_turn_failures_to_room=True` (default) while developing |
 | `pydantic-ai` + `crewai` extras conflict on `openai` versions | If we use both, give that agent its own environment |
 | Human gates are **prompt-based, not enforced** | Do not claim a security boundary; the Gatekeeper is a convention |
@@ -170,8 +170,8 @@ app cannot imitate.
 - [ ] **The actual challenge spec.** Not on Luma. It's on the HackerSquad dashboard
       (needs login): `hackersquad.io/builders/dashboard/events/cmvpfnanv001fn023zhpf6ez7/builder`
 - [ ] Real submission format + judging rubric (same place). BAND's guide is *not* the event's rules.
-- [ ] `Capability.FILES` semantics — verify before relying on it for artifact passing
-- [ ] Free-tier caps (reported as 20 remote agents / 250 rooms / 20 participants per room — unverified)
+- [x] ~~`Capability.FILES` semantics~~ — **confirmed**: it is artifact passing. `FakeAgentTools` exposes `send_room_file(content, filename, caption, mentions)`, `list_room_files()`, `read_room_file(file_id)`. Use it for specs and diffs instead of pasting into messages.
+- [ ] Free-tier caps (reported as 20 remote agents / 250 rooms / 20 participants per room — unverified; we need 4 agents, so ample)
 - [ ] BAND account + 4 agent registrations at app.band.ai (the API key shows **once**)
 
 ## 7. Reference
@@ -186,3 +186,65 @@ app cannot imitate.
   https://www.qodo.ai/blog/from-delegation-to-collaboration-inside-qodos-dark-factory/
 - Coding-agents example (planner + reviewer, Docker Compose):
   https://github.com/band-ai/band-sdk-python/tree/main/examples/coding_agents
+
+
+---
+
+## 8. Build status — 23 Nov
+
+### Schedule (solo, Israel time)
+
+| When | Available | Plan |
+|---|---|---|
+| Mon 23 Nov | until 18:00 | ✅ core protocol + tests (done) |
+| Tue 24 Nov | until 14:30 | BAND account, 4 registrations, first live room |
+| Wed–Thu 25–26 | full | real challenge spec, end-to-end cycle, demo target |
+| Fri 27 Nov | until sundown | **hard cutoff — must be demo-ready.** Record walkthrough. |
+| Sat 28 Nov | Shabbat | — |
+| Sat night–Sun 29 | until 17:00 | buffer + submission write-up only, not build time |
+
+**The Friday cutoff is the real deadline.** Saturday night plus Sunday morning is buffer,
+not capacity. Anything not working by Friday sundown is at risk.
+
+### Done
+
+- Repo, venv, `band-sdk` 9.3.0, 12 passing protocol tests
+- `factory/handoff.py` — the handoff envelope. Makes "a mention carries no context"
+  structural instead of something the prompt has to remember. Renders as readable
+  Markdown because judges read the room; a visible "Prior findings (must be answered)"
+  block *is* the evidence of a dependent handoff.
+- `factory/roles.py` — four roles + the routing topology, which is the factory's control flow
+- `factory/spec.py` — spec is a swappable input file; real challenge is a drop-in
+- `prompts/` — `_common.md` (the three hard rules, restated for every agent) + four mandates
+- `factory/build.py` — adapter per role; Verifier's is swappable via `VERIFIER_ADAPTER`
+- `scripts/register_agents.py` — registers all four and writes `agent_config.yaml` in one shot
+- `spec/auth-rate-limit.md` — placeholder target with sharp test signal
+
+### Two decisions made while building
+
+**All four agents run on the local Claude Code subscription.** `claude` 2.1.330 is installed
+with subscription credentials and there is no `ANTHROPIC_API_KEY` or `OPENAI_API_KEY` in the
+environment. `ClaudeSDKAdapter` authenticates off `claude login`, so the whole factory runs
+at zero marginal cost. The cross-family critic is deferred, not abandoned — it is one env
+var (`VERIFIER_ADAPTER=gemini|codex`) and nothing else changes.
+
+**`permission_mode` enforces the role boundaries.** Architect and Gatekeeper get
+`permission_mode="plan"`, so they *cannot* edit files — it is not merely prompt discipline.
+Builder and Verifier get `acceptEdits` and a `cwd` of `workspace/repo`, deliberately
+separate from the project root so `agent_config.yaml` is never inside a coding agent's
+working directory (it would be readable, and a tool result could post the API key to the room).
+
+### The big unblock
+
+`band.testing` ships a full fake: `FakeAgentTools`, `FakePhoenixServer`, `ScriptedTurn` /
+`TextTurn` / `ToolTurn` / `ErrorTurn`, `assert_message_sent(mentions=…, count=…)`,
+`until_said()`, `MISSING_REPLY_FAILURE`. **The entire protocol is testable with no BAND
+account, no room, and no model key.** That is why the crew could be built before the
+account exists, and it means a broken handoff is caught in 0.2s instead of in a live room.
+
+### Next
+
+1. BAND account + `scripts/register_agents.py` (needs one `band_u_…` user key)
+2. The real challenge spec — blocked on dashboard access (extension not connected)
+3. Live room, four processes, first end-to-end cycle on the placeholder spec
+4. Then swap the placeholder for the real challenge

@@ -16,3 +16,7 @@ runs/
 
 # OS
 .DS_Store
+
+# Agent checkout (Builder/Verifier cwd) - never holds agent_config.yaml
+workspace/repo/
+.agent_ids.txt
