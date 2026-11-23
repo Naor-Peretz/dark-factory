@@ -1,0 +1,15 @@
+# Copy to agent_config.yaml and fill from app.band.ai > Agents > Connect remote agent.
+# The api_key is shown ONCE at creation. agent_config.yaml is gitignored.
+# SECURITY: never place this file inside a coding agent's cwd.
+architect:
+  agent_id: ""
+  api_key: ""
+builder:
+  agent_id: ""
+  api_key: ""
+verifier:
+  agent_id: ""
+  api_key: ""
+gatekeeper:
+  agent_id: ""
+  api_key: ""
