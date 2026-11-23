@@ -14,8 +14,8 @@ Dark Factory
 ## PROJECT.STACK
 
 - [x] **Band** — the coordination layer the whole factory runs on
-- [ ] **cognee** — tick only if the memory layer actually ships
-- Other stack: `Python 3.12, band-sdk 9.3.0, Claude Agent SDK, Flask, pytest`
+- [x] **cognee** — the factory's cross-cycle memory (working; see below)
+- Other stack: `Python 3.12, band-sdk 9.3.0, Claude Agent SDK, cognee 1.6.10, Flask, pytest`
 
 ## GIT.REMOTE
 
@@ -75,6 +75,33 @@ that reads the author's own tests is not a check, and one that can edit them is 
 at all. The oracle deliberately probes what a Builder writing its own tests would miss —
 a shared global bucket that throttles the 11th request while violating the per-IP
 constraint, and a Retry-After that exists but is not a plausible number.
+
+MEMORY ACROSS CYCLES (cognee)
+
+Band's Capability.MEMORY is Enterprise-only, so the crew starts every run cold: a
+finding from an earlier cycle is gone and the factory can repeat a mistake it has
+already fixed. cognee closes that.
+
+The Architect owns it, because it is the only station that both plans and sees the
+final verdict. Before planning it asks what earlier cycles learned; when a verdict
+closes the loop it records the durable cause, not the incident. Real stored lessons
+from this build:
+
+  "A criterion saying 'from a clean checkout' is unprovable unless the workspace has
+   a baseline commit to stash against."
+
+  "Tests that pass on the baseline prove nothing. Check which tests FAIL on the
+   baseline; only those carry signal."
+
+Both are lessons the factory learned the hard way during development, and both are
+now things it will not have to relearn.
+
+Two integration choices worth noting. Agents call a CLI rather than importing cognee:
+the dependency is heavy and cognee loads .env with overwrite=True at import, which
+would clobber the Band config inside an agent process. And access is serialized by a
+file lock, because cognee's embedded graph is documented as unsafe for concurrent use
+from separate processes -- which four agent processes are. Memory failures are
+non-fatal: a factory that cannot remember must still be able to build.
 
 EVIDENCE IS BOUND TO A TREE
 

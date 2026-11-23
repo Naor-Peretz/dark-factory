@@ -1,2 +1,3 @@
 band-sdk[claude_sdk]==9.3.0
 python-dotenv>=1.0.0
+cognee==1.6.10

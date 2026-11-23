@@ -25,7 +25,13 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from factory.memory import DATASET, Lesson, configure_env, writer_lock  # noqa: E402
+from factory.memory import (  # noqa: E402
+    DATASET,
+    Lesson,
+    configure_env,
+    quiet_logging,
+    writer_lock,
+)
 
 
 def _search_type(name: str = "CHUNKS"):
@@ -49,6 +55,8 @@ async def do_remember(spec: str, role: str, text: str) -> int:
     configure_env()
     import cognee
 
+    quiet_logging()
+
     lesson = Lesson(spec_id=spec, role=role, text=text)
     with writer_lock():
         try:
@@ -63,6 +71,8 @@ async def do_remember(spec: str, role: str, text: str) -> int:
 async def do_recall(query: str, spec: str | None, top_k: int) -> int:
     configure_env()
     import cognee
+
+    quiet_logging()
 
     scoped = f"[spec:{spec}] {query}" if spec else query
     st = _search_type("CHUNKS")

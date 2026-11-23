@@ -70,10 +70,35 @@ def writer_lock(timeout_s: float = 60.0):
 
 
 def configure_env() -> None:
-    """Point cognee at our directories before it is imported."""
+    """Point cognee at our directories and quiet it, before it is imported."""
     SYSTEM_DIR.mkdir(parents=True, exist_ok=True)
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     os.environ.setdefault("SYSTEM_ROOT_DIRECTORY", str(SYSTEM_DIR))
     os.environ.setdefault("DATA_ROOT_DIRECTORY", str(DATA_DIR))
     # Keep telemetry off by default; this is someone's machine.
     os.environ.setdefault("TELEMETRY_DISABLED", "1")
+    # cognee logs every pipeline step at INFO. An agent reading this through a shell
+    # sees forty lines of machinery around one line of answer, and the answer is what
+    # it has to act on. Errors still surface.
+    os.environ.setdefault("LOG_LEVEL", "ERROR")
+
+
+def quiet_logging() -> None:
+    """Silence cognee's structlog/stdlib chatter after import.
+
+    The env var alone does not catch handlers installed at import time.
+    """
+    import logging
+
+    for name in ("cognee", "cognee.shared.logging_utils", "dlt", "LiteLLM", "httpx",
+                 "lancedb", "sentence_transformers", "fastembed", "root"):
+        logging.getLogger(name).setLevel(logging.ERROR)
+    logging.getLogger().setLevel(logging.ERROR)
+    try:
+        import structlog
+
+        structlog.configure(
+            wrapper_class=structlog.make_filtering_bound_logger(logging.ERROR)
+        )
+    except Exception:  # noqa: BLE001 - quieting logs must never break a write
+        pass
