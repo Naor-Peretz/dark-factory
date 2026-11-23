@@ -464,3 +464,50 @@ def test_fingerprint_ignores_git_metadata(tmp_path):
     for cmd in (["git", "init", "-q"], ["git", "add", "-A"], ["git", "commit", "-qm", "b"]):
         subprocess.run(cmd, cwd=tmp_path, env=env, check=True, capture_output=True)
     assert fingerprint(tmp_path) == before, ".git must not affect the fingerprint"
+
+
+# --- adapter selection -------------------------------------------------------
+
+
+def test_executing_roles_reject_a_toolless_adapter(monkeypatch):
+    """A plain LLM adapter has no shell, so it cannot verify anything.
+
+    GeminiAdapter is an LLM adapter, not a coding agent. Putting the Verifier on it
+    would produce an agent that must run pytest and cannot. Fail loudly at startup
+    rather than mysteriously mid-run.
+    """
+    import pytest as _pytest
+
+    from factory import build as build_mod
+    from factory.roles import BUILDER, GATEKEEPER, VERIFIER
+
+    for role in (BUILDER, VERIFIER):
+        monkeypatch.setenv(f"ADAPTER_{role.key.upper()}", "gemini")
+        with _pytest.raises(SystemExit, match="must run commands"):
+            build_mod.adapter_kind(role)
+
+    # The Gatekeeper rules on evidence and needs no tools, so it may use one.
+    monkeypatch.setenv("ADAPTER_GATEKEEPER", "gemini")
+    assert build_mod.adapter_kind(GATEKEEPER) == "gemini"
+
+
+def test_roles_default_to_the_local_claude_subscription(monkeypatch):
+    from factory import build as build_mod
+    from factory.roles import ROLES
+
+    for role in ROLES.values():
+        monkeypatch.delenv(f"ADAPTER_{role.key.upper()}", raising=False)
+        assert build_mod.adapter_kind(role) == "claude"
+
+
+def test_gemini_without_a_key_fails_with_a_useful_message(monkeypatch):
+    import pytest as _pytest
+
+    from factory import build as build_mod
+    from factory.roles import GATEKEEPER
+
+    monkeypatch.setenv("ADAPTER_GATEKEEPER", "gemini")
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    monkeypatch.delenv("GOOGLE_API_KEY", raising=False)
+    with _pytest.raises(SystemExit, match="GEMINI_API_KEY"):
+        build_mod.adapter_for(GATEKEEPER, "prompt")

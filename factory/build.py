@@ -34,10 +34,40 @@ ACCEPTANCE = REPO_ROOT / "acceptance"
 EMIT_ALL = (Emit.TOOL_CALLS, Emit.THOUGHTS, Emit.USAGE)
 
 
+# Roles that must actually execute things: run pytest, edit files, diff against a
+# baseline. Only a coding-agent adapter can serve these. A plain LLM adapter cannot.
+EXECUTING = {"builder", "verifier"}
+
+# Adapters that give the agent a shell and a filesystem.
+CODING_ADAPTERS = {"claude", "codex"}
+
+
+def adapter_kind(role: Role) -> str:
+    """Which adapter backs this role: ADAPTER_<ROLE> env var, else claude.
+
+    Every role defaults to ClaudeSDKAdapter, which authenticates off the local
+    `claude login` subscription -- no API key, no per-token cost.
+
+    Swapping one role to another model family is a judging criterion (the critic should
+    not be the author's own judgment) and also relieves a single subscription carrying
+    four concurrent agents. The natural candidate is the **Gatekeeper**: it only reads
+    evidence and rules, so it needs no tools at all.
+    """
+    kind = os.environ.get(f"ADAPTER_{role.key.upper()}", "claude").lower()
+    if role.key in EXECUTING and kind not in CODING_ADAPTERS:
+        raise SystemExit(
+            f"ADAPTER_{role.key.upper()}={kind!r} cannot work: the {role.name} must run "
+            f"commands (pytest, git diff), and {kind!r} is a plain LLM adapter with no "
+            f"shell or filesystem. Use one of {sorted(CODING_ADAPTERS)}, or move the "
+            f"cross-family model to the Gatekeeper, which only reads evidence."
+        )
+    return kind
+
+
 def adapter_for(role: Role, prompt: str):
     """Build the adapter for a role. Keep execution events ON -- the room transcript
     is part of the submission, and tool calls are what make the handoffs legible."""
-    kind = os.environ.get("VERIFIER_ADAPTER", "claude") if role.key == "verifier" else "claude"
+    kind = adapter_kind(role)
 
     if kind == "claude":
         from band.adapters import ClaudeSDKAdapter, ClaudeSDKAdapterConfig
@@ -96,22 +126,36 @@ def adapter_for(role: Role, prompt: str):
             CodexAdapterConfig(
                 custom_section=prompt,
                 cwd=str(WORKSPACE),
-                model=os.environ.get("VERIFIER_MODEL", "gpt-5.5"),
-                reasoning_effort=os.environ.get("VERIFIER_EFFORT", "high"),
+                model=_model_for(role, "gpt-5.5"),
+                reasoning_effort=os.environ.get(f"EFFORT_{role.key.upper()}", "high"),
                 approval_mode="auto_accept",
             ),
             emit=EMIT_ALL,
         )
 
     if kind == "gemini":
+        # A plain LLM adapter: no shell, no filesystem. Fine for the Gatekeeper, which
+        # rules on evidence in the room and needs no tools; refused above for the
+        # Builder and Verifier, which must execute things.
+        #
+        # Reads GEMINI_API_KEY (or GOOGLE_API_KEY) from the environment.
         from band.adapters import GeminiAdapter, GeminiAdapterConfig
 
-        return GeminiAdapter(
-            GeminiAdapterConfig(
-                custom_section=prompt,
-                model=os.environ.get("VERIFIER_MODEL", "gemini-2.5-pro"),
-            ),
-            emit=EMIT_ALL,
-        )
+        if not (os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")):
+            raise SystemExit(
+                f"ADAPTER_{role.key.upper()}=gemini needs GEMINI_API_KEY in .env "
+                f"(free tier at https://aistudio.google.com)"
+            )
+        gcfg: dict = {"custom_section": prompt}
+        if override := _model_for(role, None):
+            gcfg["model"] = override  # else keep the adapter's own default
+        return GeminiAdapter(GeminiAdapterConfig(**gcfg), emit=EMIT_ALL)
 
-    raise SystemExit(f"unknown VERIFIER_ADAPTER={kind!r} (claude|codex|gemini)")
+    raise SystemExit(
+        f"unknown ADAPTER_{role.key.upper()}={kind!r} (claude|codex|gemini)"
+    )
+
+
+def _model_for(role: Role, default: str | None) -> str | None:
+    """MODEL_<ROLE> overrides; otherwise the adapter's own default."""
+    return os.environ.get(f"MODEL_{role.key.upper()}") or default
