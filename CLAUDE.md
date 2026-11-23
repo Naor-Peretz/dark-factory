@@ -76,9 +76,11 @@ Gatekeeper --BLOCKED--> Architect                            (blockable verdict)
 `Verifier.on_reject == "Builder"` and `Verifier.forward_to == "Gatekeeper"` — a failure
 must never reach the ship decision. A test asserts this.
 
-**`factory/build.py`** constructs one adapter per role. Role boundaries are *enforced*,
-not merely instructed: Architect and Gatekeeper run `permission_mode="plan"` and cannot
-edit files. Builder and Verifier get `acceptEdits` and `cwd=workspace/repo`.
+**`factory/build.py`** constructs one adapter per role. Role boundaries are *enforced*
+by workspace isolation, not by switching tools off: Builder and Verifier get
+`cwd=workspace/repo`, while Architect and Gatekeeper get **no `cwd`**, so the adapter
+hands each an empty `.band-workspaces/<room_id>` and the repo is simply not theirs.
+**Never set `permission_mode="plan"`** — see "Things that will bite you".
 
 **`prompts/_common.md`** is prepended to every role's mandate and restates the three rules.
 If you edit it, you edit all four agents. Role mandates follow the same shape: what it
@@ -100,6 +102,10 @@ owns / what it may not do / your turn / done means.
   no per-token cost. Don't add an `ANTHROPIC_API_KEY` requirement.
 - **`VERIFIER_ADAPTER=claude|codex|gemini`** swaps only the Verifier's model family. A
   cross-family critic is a judging criterion; keep that swap a one-variable change.
+- **`permission_mode="plan"` silently breaks an agent.** It blocks *every* tool call,
+  `band_send_message` included, so the agent produces a perfect handoff and then cannot
+  send it — the room logs "Cannot call mcp__band__band_send_message while in plan mode"
+  and the turn ends without a reply. Every role must be `acceptEdits`. A test enforces this.
 - **`band.testing`** provides `FakeAgentTools`, `FakePhoenixServer`, scripted turns, and
   `assert_message_sent(mentions=…)`. Test protocol changes there — a live room is slow and
   costs tokens. Note `ChatParticipant` and `Peer` are different schemas with different

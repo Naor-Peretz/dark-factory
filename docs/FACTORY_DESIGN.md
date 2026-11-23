@@ -235,8 +235,10 @@ environment. `ClaudeSDKAdapter` authenticates off `claude login`, so the whole f
 at zero marginal cost. The cross-family critic is deferred, not abandoned — it is one env
 var (`VERIFIER_ADAPTER=gemini|codex`) and nothing else changes.
 
-**`permission_mode` enforces the role boundaries.** Architect and Gatekeeper get
-`permission_mode="plan"`, so they *cannot* edit files — it is not merely prompt discipline.
+**Role boundaries are enforced by workspace isolation.** Architect and Gatekeeper get
+**no `cwd`**, so each receives an empty `.band-workspaces/<room_id>` and the repo is not
+theirs to touch. (The first attempt used `permission_mode="plan"` and was wrong — see
+§9.)
 Builder and Verifier get `acceptEdits` and a `cwd` of `workspace/repo`, deliberately
 separate from the project root so `agent_config.yaml` is never inside a coding agent's
 working directory (it would be readable, and a tool result could post the API key to the room).
@@ -291,3 +293,41 @@ so every cycle starts from a known state. Verified: baseline 5/5 pass, oracle 3 
    relieves the Max 5x subscription (see the rate-limit row above)
 4. Live room, four processes, first end-to-end cycle on the placeholder spec
 5. Then swap the placeholder for the real challenge
+
+
+---
+
+## 9. First live run — 23 Nov, 14:28
+
+Four agents connected, joined the room, and the Architect was mentioned. It composed a
+**correct** handoff envelope on the first attempt: all seven acceptance criteria carried
+verbatim, the constraints restated, design guidance, and an explicit "Prior findings:
+none (first pass)". The envelope design works.
+
+Then it failed to send, and the chain stopped dead.
+
+```
+"output": "Cannot call mcp__band__band_send_message while in plan mode."
+"is_error": true
+...
+error / Architect: The agent ended its turn without replying or calling
+band_no_reply, so nothing reached the room.
+```
+
+**`permission_mode="plan"` blocks every tool call, not just file edits.** That includes
+the Band MCP tools. So the two roles I had "protected" were the two that could not speak.
+A planning agent in plan mode is mute.
+
+This is worth dwelling on because it is the exact failure the prompts warn about —
+rule 1, a turn ending without a reply — arriving from a direction the prompt could never
+prevent. No amount of instruction fixes a tool the harness has disabled.
+
+**Fix:** every role runs `acceptEdits`. The boundary is now isolation: Builder and
+Verifier get `cwd=workspace/repo`; Architect and Gatekeeper get no `cwd` at all, so the
+adapter gives each its own empty workspace. They cannot reach the repo because it is not
+theirs — a stronger guarantee than a mode flag, and one that leaves them able to talk.
+
+Two regression tests lock it in: no role may be in plan mode, and non-coding roles must
+have no `cwd` and no `add_dirs`.
+
+**Cost of the failed turn:** $0.096, 18.7s. Worth noting for budgeting a full cycle.

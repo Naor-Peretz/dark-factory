@@ -273,3 +273,44 @@ def test_verifier_prompt_warns_about_the_vacuous_pass():
     A rising pass count is not progress, and the Verifier must know that."""
     prompt = __import__("factory.prompts", fromlist=["build"]).build(VERIFIER)
     assert "vacuous" in prompt.lower()
+
+
+# --- permission modes --------------------------------------------------------
+
+
+def test_no_role_runs_in_plan_mode():
+    """Regression, found in the first live run.
+
+    `permission_mode="plan"` looks like the natural way to stop the Architect and
+    Gatekeeper editing code. It is not: plan mode blocks EVERY tool call, including
+    band_send_message, so the agent composes a flawless handoff and then cannot send
+    it. The room reported:
+        "Cannot call mcp__band__band_send_message while in plan mode."
+    followed by a turn that ended without a reply. Enforce the boundary with workspace
+    isolation instead, which is what test_non_coding_roles_get_no_repo_access checks.
+    """
+    from factory import build as build_mod
+    from factory.roles import ROLES
+
+    for role in ROLES.values():
+        cfg = build_mod.adapter_for(role, "prompt").config
+        mode = getattr(cfg.permission_mode, "value", cfg.permission_mode)
+        assert mode != "plan", f"{role.name} is in plan mode and cannot speak in the room"
+
+
+def test_non_coding_roles_get_no_repo_access():
+    """Architect and Gatekeeper must not be able to reach the Builder's checkout."""
+    from factory import build as build_mod
+    from factory.roles import ARCHITECT, BUILDER, GATEKEEPER, VERIFIER
+
+    for role in (ARCHITECT, GATEKEEPER):
+        cfg = build_mod.adapter_for(role, "prompt").config
+        assert cfg.cwd is None, (
+            f"{role.name} must have no cwd, so the adapter gives it an isolated "
+            f"per-room workspace instead of the repo"
+        )
+        assert not getattr(cfg.cli, "add_dirs", ()), f"{role.name} must get no extra dirs"
+
+    for role in (BUILDER, VERIFIER):
+        cfg = build_mod.adapter_for(role, "prompt").config
+        assert cfg.cwd == build_mod.WORKSPACE, f"{role.name} needs the repo checkout"

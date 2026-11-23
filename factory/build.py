@@ -43,13 +43,18 @@ def adapter_for(role: Role, prompt: str):
         from band.adapters import ClaudeSDKAdapter, ClaudeSDKAdapterConfig
 
         cfg: dict = {"custom_section": prompt, "turn_timeout_s": 600.0}
+        # permission_mode is acceptEdits for EVERY role. Do not use "plan" here:
+        # plan mode blocks every tool call, band_send_message included, so a planning
+        # agent composes a perfect handoff and then cannot send it. Observed live on
+        # 23 Nov: "Cannot call mcp__band__band_send_message while in plan mode."
+        cfg["permission_mode"] = "acceptEdits"
         if role.writes_code:
             WORKSPACE.mkdir(parents=True, exist_ok=True)
             cfg["cwd"] = WORKSPACE
-            cfg["permission_mode"] = "acceptEdits"
-        else:
-            # Real enforcement, not just prompt discipline: plan mode cannot edit files.
-            cfg["permission_mode"] = "plan"
+        # Non-coding roles get NO cwd, so the adapter gives each its own empty
+        # .band-workspaces/<room_id>. That is the real boundary: the Architect and
+        # Gatekeeper cannot reach the Builder's checkout because it is not theirs,
+        # not because their tools are switched off.
         if role.key == "verifier":
             from band.adapters.claude_sdk import ClaudeCLIOptions
 
