@@ -24,3 +24,5 @@ workspace/repo/
 # Playwright scratch output
 .playwright-mcp/
 *.png
+*.yml.snapshot
+dash.yml

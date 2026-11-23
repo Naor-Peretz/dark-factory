@@ -197,16 +197,18 @@ app cannot imitate.
 
 | When | Available | Plan |
 |---|---|---|
-| Mon 23 Nov | until 18:00 | ✅ core protocol + tests (done) |
-| Tue 24 Nov | until 14:30 | BAND account, 4 registrations, first live room |
-| Wed–Thu 25–26 | full | real challenge spec, end-to-end cycle, demo target |
-| Fri 27 Nov | until sundown | **hard cutoff — must be demo-ready.** Record walkthrough. |
+| Mon 23 Nov | until 18:00 | ✅ protocol + tests + target/oracle + dashboard read. **Add GitHub remote.** |
+| Tue 24 Nov | until 14:30 | BAND account, 4 registrations, live room, first end-to-end cycle |
+| Wed 25 Nov | full | finish the cycle, **record a rough-cut demo video**, then begin cognee |
+| Thu 26 Nov | full | cognee as the memory layer; harden the crew |
+| Fri 27 Nov | until sundown | **hard cutoff.** Polish, re-record the video, save the project in the form |
 | Sat 28 Nov | Shabbat | — |
-| Sat night–Sun 29 | until 17:00 | buffer + submission write-up only, not build time |
+| Sat night–Sun 29 | until 17:00 | buffer + submit. Not build time. |
 
-**Added by the dashboard read:** a video demo is mandatory and blocks submission, so
-Friday must leave room to *record*, not just to finish building. And the repo needs a
-GitHub remote before anything can be submitted at all.
+**Sequencing decided 23 Nov:** BAND core first, cognee only once a cycle runs live
+(a working one-sponsor factory beats a broken two-sponsor one). Rough-cut video on
+Wednesday the moment one cycle works — an ugly real recording in hand removes the single
+biggest submission risk, and Friday can re-record if there is time.
 
 **The Friday cutoff is the real deadline.** Saturday night plus Sunday morning is buffer,
 not capacity. Anything not working by Friday sundown is at risk.
