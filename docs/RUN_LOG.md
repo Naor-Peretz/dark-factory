@@ -361,3 +361,44 @@ reader to guess — so the prompt was changed to match the agent rather than the
 Band's `Capability.MEMORY` is Enterprise-only, so without this the crew genuinely starts
 every run cold. The gap is real, and what fills it is doing real work: the factory now
 arrives at a cycle already knowing what tripped it last time.
+
+
+---
+
+## Runs 9 and 10 — the factory repairs its own evidence
+
+Left running, the crew completed two more cycles unattended. The lessons it wrote are
+the point, so they are quoted in full.
+
+**After cycle 3** it recorded what worked *and* named its own weak spots:
+
+> Criteria that worked: a no-argument `create_app()` criterion (real defaults) plus a
+> criterion that new tests must fail on baseline for behavioural reasons, with failure
+> text quoted by the Verifier. Result: 4 of 6 new-test baseline failures were
+> behavioural (assert 200 == 429, missing Retry-After header) and only 2 were
+> clock-signature errors. **Weak spots left open: nobody confirmed which app.py the
+> baseline acceptance run imported, and criterion 7 passes on baseline so it is only a
+> regression guard.**
+
+**After cycle 4** it had closed both:
+
+> Adding a baseline-provenance criterion (Verifier prints `app.__file__` for the
+> baseline run, proving it imported the baseline worktree) closed the cycle-3 gap, and
+> pairing the valid-credentials check with an 11th-request-429 assertion in one test
+> made criterion 7 fail on baseline (assert 200 == 429), so it is no longer vacuous.
+> 5 of 7 new-test baseline failures were behavioural. Still open: time is faked in
+> every test so wall-clock behaviour is untested; the Verifier did not re-paste the
+> app.py diff.
+
+The factory diagnosed a weakness in how it proves things, wrote it down, and repaired it
+on the next pass without being asked — then left itself a fresh note about the next
+weakness (faked clocks) for the cycle after.
+
+**Verified, not taken on trust.** The lesson names commit `2856b1d` on baseline
+`d037eed`; `git log` in the room checkout shows exactly those SHAs. Ground truth at the
+end: 10/10 acceptance, 13/13 repo tests — one more repo test than cycle 3, which is the
+test it added to close its own gap.
+
+### Session cost
+
+Roughly **$1.46** across all four agents for ten cycles, on top of the earlier runs.
