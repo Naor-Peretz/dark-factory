@@ -30,3 +30,6 @@ dash.yml
 # Browser-automation snapshots: these capture credentials shown on screen
 *.yml
 !pytest.ini
+
+# cognee memory store (local SQLite/LanceDB/graph files)
+workspace/memory/

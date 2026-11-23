@@ -18,6 +18,7 @@ def build(role: Role, *, spec_text: str | None = None) -> str:
         own = own.replace("$ACCEPTANCE_DIR", str(acceptance))
         own += f"\n\nACCEPTANCE_DIR = {acceptance}\n"
     own = own.replace("$FINGERPRINT_CMD", str(root / "scripts" / "fingerprint.py"))
+    own = own.replace("$MEMORY_CMD", str(root / "scripts" / "memory.py"))
     parts = [common, "", "---", "", own]
     if spec_text:
         parts += ["", "---", "", "# Current spec", "", spec_text]

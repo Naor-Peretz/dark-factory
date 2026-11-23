@@ -312,11 +312,13 @@ def test_non_coding_roles_get_no_repo_access():
         assert adapter._workspaces._resolver is None, (
             f"{role.name} must get no room checkout at all"
         )
+        assert not any(
+            "rooms" in d for d in (getattr(cfg.cli, "add_dirs", ()) or ())
+        ), f"{role.name} must not be handed a room checkout through add_dirs"
         assert cfg.cwd is None, (
             f"{role.name} must have no cwd, so the adapter gives it an isolated "
             f"per-room workspace instead of the repo"
         )
-        assert not getattr(cfg.cli, "add_dirs", ()), f"{role.name} must get no extra dirs"
 
     for role in (BUILDER, VERIFIER):
         adapter = build_mod.adapter_for(role, "prompt")
@@ -354,11 +356,15 @@ def test_executing_roles_can_run_commands_unattended():
             "an approval wait counts toward the turn timeout, so it must be shorter"
         )
 
-    for role in (ARCHITECT, GATEKEEPER):
-        cfg = build_mod.adapter_for(role, "prompt").config
-        assert cfg.approvals is None, (
-            f"{role.name} does not execute anything; it should not auto-approve"
-        )
+    # The Architect also gets a shell -- it runs the memory CLI -- but no checkout.
+    # The Gatekeeper gets neither: it rules on evidence in the room and nothing else.
+    cfg = build_mod.adapter_for(GATEKEEPER, "prompt").config
+    assert cfg.approvals is None, (
+        "the Gatekeeper executes nothing; it should not auto-approve"
+    )
+    arch = build_mod.adapter_for(ARCHITECT, "prompt").config
+    assert arch.approvals is not None, "the Architect needs a shell for memory"
+    assert arch.cwd is None, "...but still no checkout"
 
 
 def test_auto_accepted_approvals_are_not_announced_in_the_room():
@@ -568,3 +574,87 @@ def test_gemini_gatekeeper_builds_when_a_key_is_present(monkeypatch):
     monkeypatch.setenv("GEMINI_API_KEY", "test-key-not-real")
     adapter = build_mod.adapter_for(GATEKEEPER, "prompt")
     assert type(adapter).__name__ == "GeminiAdapter"
+
+
+# --- cross-cycle memory ------------------------------------------------------
+
+
+def test_lesson_renders_self_describing_text():
+    """recall returns text, not structure, so the scope must live in the sentence."""
+    from factory.memory import Lesson
+
+    rendered = Lesson(
+        spec_id="auth-rate-limit",
+        role="architect",
+        text="  a criterion saying 'from a clean checkout' needs a baseline commit  ",
+    ).render()
+    assert rendered.startswith("[spec:auth-rate-limit] [role:architect] ")
+    assert "baseline commit" in rendered
+    assert "  " not in rendered[40:], "the body should be stripped"
+
+
+def test_writer_lock_serializes_across_processes():
+    """cognee's embedded graph is unsafe for concurrent use; four agents is concurrent."""
+    import fcntl
+
+    from factory.memory import LOCK_PATH, writer_lock
+
+    with writer_lock():
+        assert LOCK_PATH.exists()
+        # A second holder must not be able to take it while we have it.
+        with open(LOCK_PATH, "w") as other:
+            try:
+                fcntl.flock(other, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                taken = True
+                fcntl.flock(other, fcntl.LOCK_UN)
+            except BlockingIOError:
+                taken = False
+    assert taken is False, "the lock did not exclude a second writer"
+
+    # And it must be released afterwards.
+    with open(LOCK_PATH, "w") as after:
+        fcntl.flock(after, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        fcntl.flock(after, fcntl.LOCK_UN)
+
+
+def test_memory_dirs_are_absolute_and_inside_the_project():
+    """cognee resolves its roots inside the venv unless pinned, which silently
+    empties the store when anything about the environment shifts."""
+    from factory.memory import DATA_DIR, MEMORY_ROOT, SYSTEM_DIR, configure_env
+
+    configure_env()
+    import os
+
+    for key, path in (("SYSTEM_ROOT_DIRECTORY", SYSTEM_DIR), ("DATA_ROOT_DIRECTORY", DATA_DIR)):
+        assert path.is_absolute(), f"{key} must be absolute"
+        assert MEMORY_ROOT in path.parents or path == MEMORY_ROOT
+        assert os.environ[key] == str(path)
+
+
+def test_only_the_architect_is_told_about_memory():
+    """The Architect plans and sees the verdict, so it owns the lessons. The
+    Gatekeeper may run on a toolless adapter and could not call a CLI at all."""
+    from factory import prompts
+    from factory.roles import ROLES
+
+    arch = prompts.build(ROLES["architect"])
+    assert "scripts/memory.py" in arch
+    assert "$MEMORY_CMD" not in arch, "placeholder must be substituted"
+    assert "recall" in arch and "remember" in arch
+
+    for key in ("builder", "verifier", "gatekeeper"):
+        assert "scripts/memory.py" not in prompts.build(ROLES[key])
+
+
+def test_architect_has_a_shell_but_no_checkout():
+    """It needs to run the memory CLI; it must still not be able to edit code."""
+    from factory import build as build_mod
+    from factory.roles import ARCHITECT, GATEKEEPER
+
+    arch = build_mod.adapter_for(ARCHITECT, "prompt")
+    assert arch.config.approvals is not None, "the Architect needs an unattended shell"
+    assert arch.config.cwd is None
+    assert arch._workspaces._resolver is None, "the Architect must get no checkout"
+
+    gate = build_mod.adapter_for(GATEKEEPER, "prompt")
+    assert gate.config.approvals is None, "the Gatekeeper rules on evidence only"

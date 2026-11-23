@@ -54,6 +54,12 @@ EMIT_BY_ADAPTER = {
 # baseline. Only a coding-agent adapter can serve these. A plain LLM adapter cannot.
 EXECUTING = {"builder", "verifier"}
 
+# Roles that need an unattended shell. Wider than EXECUTING because the Architect runs
+# the memory CLI: it recalls what earlier cycles learned before planning, and records
+# the lesson when a verdict closes the loop back to it. It still gets no checkout, so
+# a shell buys it memory, not the ability to edit code.
+NEEDS_SHELL = EXECUTING | {"architect"}
+
 # Adapters that give the agent a shell and a filesystem.
 CODING_ADAPTERS = {"claude", "codex"}
 
@@ -94,6 +100,25 @@ def adapter_for(role: Role, prompt: str):
         # agent composes a perfect handoff and then cannot send it. Observed live on
         # 23 Nov: "Cannot call mcp__band__band_send_message while in plan mode."
         cfg["permission_mode"] = "acceptEdits"
+        if role.key in NEEDS_SHELL and not role.writes_code:
+            # The Architect: a shell for the memory CLI, but no checkout. It recalls
+            # what earlier cycles learned before planning, and records the lesson when
+            # a verdict closes the loop back to it. acceptEdits does not cover shell
+            # commands, so without approvals every memory call would hang waiting for
+            # a human who is not there.
+            from band.adapters.claude_sdk import ClaudeApprovalOptions, ClaudeCLIOptions
+
+            cfg["cli"] = ClaudeCLIOptions(
+                add_dirs=(str(REPO_ROOT / "scripts"), str(REPO_ROOT / "factory")),
+                env={
+                    "PATH": f"{REPO_ROOT / '.venv' / 'bin'}:{os.environ.get('PATH', '')}",
+                    "VIRTUAL_ENV": str(REPO_ROOT / ".venv"),
+                },
+            )
+            cfg["approvals"] = ClaudeApprovalOptions(
+                mode="auto_accept", wait_timeout_s=120.0,
+                timeout_decision="decline", text_notifications=False,
+            )
         if role.writes_code:
             ROOMS.mkdir(parents=True, exist_ok=True)
             # acceptEdits covers file writes but NOT shell commands, so every
