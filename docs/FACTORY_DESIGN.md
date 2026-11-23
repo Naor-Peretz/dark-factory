@@ -204,6 +204,10 @@ app cannot imitate.
 | Sat 28 Nov | Shabbat | — |
 | Sat night–Sun 29 | until 17:00 | buffer + submission write-up only, not build time |
 
+**Added by the dashboard read:** a video demo is mandatory and blocks submission, so
+Friday must leave room to *record*, not just to finish building. And the repo needs a
+GitHub remote before anything can be submitted at all.
+
 **The Friday cutoff is the real deadline.** Saturday night plus Sunday morning is buffer,
 not capacity. Anything not working by Friday sundown is at risk.
 
@@ -273,9 +277,14 @@ so every cycle starts from a known state. Verified: baseline 5/5 pass, oracle 3 
 ### Next
 
 1. BAND account + four manual registrations → `scripts/check_config.py` (`docs/SETUP.md`)
-2. The real challenge spec — **blocked**: Chrome extension will not register with the
-   account despite being installed, native host running, and claude.ai signed in. Not
-   worth more time; paste the text instead.
+2. ~~The real challenge spec~~ — **retrieved 23 Nov via Playwright. There isn't one.**
+   The organizers have published no challenge statement, rules, rubric, deadline or
+   prizes. See `docs/SUBMISSION.md`. The Luma copy is the whole brief, so the placeholder
+   spec stands and our architecture does not need to change. Ask on Discord for the real
+   deadline and rubric.
+   **New hard requirements found:** a GitHub remote, and a **mandatory video demo that
+   blocks submission**. Plus a second sponsor, **cognee**, that the dashboard says is
+   scored.
 3. `VERIFIER_ADAPTER=gemini` + a free aistudio.google.com key — cross-family critic *and*
    relieves the Max 5x subscription (see the rate-limit row above)
 4. Live room, four processes, first end-to-end cycle on the placeholder spec
