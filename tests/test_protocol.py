@@ -360,3 +360,59 @@ def test_auto_accepted_approvals_are_not_announced_in_the_room():
         assert cfg.approvals.text_notifications is False, (
             f"{role.name} would announce every auto-accepted approval into the room"
         )
+
+
+# --- binding evidence to a tree ----------------------------------------------
+
+
+def test_fingerprint_is_deterministic_and_content_sensitive(tmp_path):
+    """A verdict is only as good as the tree it was measured against."""
+    from factory.fingerprint import fingerprint
+
+    (tmp_path / "a.py").write_text("x = 1\n")
+    (tmp_path / "sub").mkdir()
+    (tmp_path / "sub" / "b.py").write_text("y = 2\n")
+
+    first = fingerprint(tmp_path)
+    assert first == fingerprint(tmp_path), "same tree must hash the same"
+
+    (tmp_path / "sub" / "b.py").write_text("y = 3\n")
+    assert fingerprint(tmp_path) != first, "a content change must change the hash"
+
+
+def test_fingerprint_ignores_caches_but_not_source(tmp_path):
+    from factory.fingerprint import fingerprint
+
+    (tmp_path / "a.py").write_text("x = 1\n")
+    base = fingerprint(tmp_path)
+
+    (tmp_path / "__pycache__").mkdir()
+    (tmp_path / "__pycache__" / "a.cpython-312.pyc").write_bytes(b"\x00junk")
+    (tmp_path / "run.log").write_text("noise")
+    assert fingerprint(tmp_path) == base, "caches and logs must not shift the hash"
+
+    (tmp_path / "c.py").write_text("z = 9\n")
+    assert fingerprint(tmp_path) != base, "a new source file must shift it"
+
+
+def test_verifier_is_told_to_stamp_before_and_after():
+    """One reading proves nothing: the tree can move during the run."""
+    from factory import prompts
+    from factory.roles import VERIFIER
+
+    p = prompts.build(VERIFIER)
+    assert "scripts/fingerprint.py" in p, "the Verifier needs the actual command"
+    assert "$FINGERPRINT_CMD" not in p, "placeholder must be substituted"
+    assert "WORKSPACE-FINGERPRINT" in p
+    low = p.lower()
+    assert "before your first check" in low and "after your last" in low
+
+
+def test_gatekeeper_must_block_unstamped_evidence():
+    from factory import prompts
+    from factory.roles import GATEKEEPER
+
+    p = prompts.build(GATEKEEPER)
+    assert "WORKSPACE-FINGERPRINT" in p
+    assert "No fingerprint at all" in p
+    assert "readings differ" in p

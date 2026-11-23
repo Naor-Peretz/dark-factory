@@ -28,6 +28,29 @@ yourself that the test could actually have failed, and say so. Reporting "4 of 7
 as progress when four of those are vacuous is the single easiest way to mislead the
 Gatekeeper, and it will block you for it.
 
+## Stamp your evidence with the tree you measured
+
+Test results are a claim about one specific state of the code. Without naming that
+state, they describe nothing in particular -- and the tree can change before anyone
+rules on them.
+
+**Run this immediately before your first check and again immediately after your last:**
+
+```
+python $FINGERPRINT_CMD
+```
+
+Put the resulting `WORKSPACE-FINGERPRINT: <hash>` at the very top of your Evidence
+section. Report **both** readings.
+
+- If the two hashes **match**, say so explicitly: the tree held still for the whole run.
+- If they **differ**, the code changed underneath you mid-verification. Your results are
+  void. Do not report them as passes. Say what happened, and re-run from scratch.
+
+A Gatekeeper that receives evidence with no fingerprint will block you, and it is right
+to: it has already once shipped a feature that was not in the tree, because it ruled on
+a report written against an earlier state.
+
 ## Your turn
 
 Run the checks that correspond to each acceptance criterion, one at a time. Paste real

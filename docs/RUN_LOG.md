@@ -116,3 +116,56 @@ visible because an agent reported them honestly instead of papering over them.
 
 Four regression tests now cover them: no role in plan mode, executing roles can run
 commands, non-coding roles get no repo access, and auto-accepted approvals stay silent.
+
+---
+
+## Run 4 — 14:39 · SHIP on a feature that did not exist
+
+The worst outcome of the day, and the most useful.
+
+I reseeded the workspace to pristine and restarted the agents for a clean run. A Builder
+handoff from the previous run was still in flight; on restart the Gatekeeper hydrated it
+from room history and ruled:
+
+```
+SHIP — spec auth-rate-limit, rev 2
+```
+
+Ground truth at that moment: **no limiter in the tree at all**, and the acceptance
+oracle failing **5 of 10**. The factory shipped a feature that was not there.
+
+**The Gatekeeper did nothing wrong by its own rules.** The evidence it read was real,
+detailed, and described passing tests. It simply described a tree that no longer
+existed. Nothing in the protocol tied a test result to the state of the code it was
+measured against — so a report could outlive its subject and still be ratified.
+
+This is a deeper failure than the earlier three. Those were harness bugs. This is a
+protocol hole: **evidence with no binding to the world is a story about the past.**
+
+### Fix: fingerprint the tree
+
+`factory/fingerprint.py` hashes every source file under the workspace (caches, VCS
+metadata and logs excluded) into a short deterministic digest. `scripts/fingerprint.py`
+prints it.
+
+- The **Verifier** runs it immediately before its first check and again after its last,
+  and puts both readings at the top of its Evidence. Matching hashes mean the tree held
+  still; differing hashes void the run.
+- The **Gatekeeper** blocks before reading a single result if the evidence carries no
+  fingerprint, carries only one reading, or carries two that disagree.
+
+Four tests cover it: determinism, content-sensitivity, cache-insensitivity, and that
+both prompts actually carry the rule.
+
+### The gap that remains
+
+The Verifier's two readings catch a tree that moves *during* verification. They do not
+catch a tree that moves *between* the Verifier finishing and the Gatekeeper ruling —
+which is exactly what happened in this run.
+
+Closing that needs the Gatekeeper to recompute the hash itself at verdict time, which
+means giving it read access to the workspace. That trades away part of the boundary
+that currently makes it a clean judge: it has no `cwd` and cannot reach the code at all.
+**Deliberately left open pending a decision** — the honest state is that the factory can
+now detect a tree that shifts mid-verification, and cannot yet detect one that shifts
+mid-verdict.

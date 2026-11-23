@@ -12,10 +12,12 @@ PROMPT_DIR = Path(__file__).resolve().parent.parent / "prompts"
 def build(role: Role, *, spec_text: str | None = None) -> str:
     common = (PROMPT_DIR / "_common.md").read_text()
     own = (PROMPT_DIR / role.prompt).read_text()
+    root = PROMPT_DIR.parent
     if role.key == "verifier":
-        acceptance = PROMPT_DIR.parent / "acceptance"
+        acceptance = root / "acceptance"
         own = own.replace("$ACCEPTANCE_DIR", str(acceptance))
         own += f"\n\nACCEPTANCE_DIR = {acceptance}\n"
+    own = own.replace("$FINGERPRINT_CMD", str(root / "scripts" / "fingerprint.py"))
     parts = [common, "", "---", "", own]
     if spec_text:
         parts += ["", "---", "", "# Current spec", "", spec_text]
