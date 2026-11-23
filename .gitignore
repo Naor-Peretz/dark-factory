@@ -20,3 +20,7 @@ runs/
 # Agent checkout (Builder/Verifier cwd) - never holds agent_config.yaml
 workspace/repo/
 .agent_ids.txt
+
+# Playwright scratch output
+.playwright-mcp/
+*.png
