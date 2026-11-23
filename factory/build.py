@@ -166,7 +166,17 @@ def adapter_for(role: Role, prompt: str):
                 f"ADAPTER_{role.key.upper()}=gemini needs GEMINI_API_KEY in .env "
                 f"(free tier at https://aistudio.google.com)"
             )
-        gcfg: dict = {"custom_section": prompt}
+        # The free tier returns 503 UNAVAILABLE ("this model is currently
+        # experiencing high demand") under load, and the adapter's default 2 retries
+        # are not enough -- observed 23 Nov. These are transient spikes, so back off
+        # harder rather than failing a verdict. If Gemini is unusable during a demo,
+        # ADAPTER_GATEKEEPER=claude restores a working factory in one variable; the
+        # cost is only the cross-family claim.
+        gcfg: dict = {
+            "custom_section": prompt,
+            "max_retries": int(os.environ.get("GEMINI_MAX_RETRIES", "6")),
+            "retry_base_delay_s": float(os.environ.get("GEMINI_RETRY_DELAY", "2.0")),
+        }
         if override := _model_for(role, None):
             gcfg["model"] = override  # else keep the adapter's own default
         return GeminiAdapter(GeminiAdapterConfig(**gcfg), emit=EMIT_BY_ADAPTER["gemini"])

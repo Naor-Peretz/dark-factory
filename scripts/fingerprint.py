@@ -19,11 +19,21 @@ from factory.build import ROOMS  # noqa: E402
 from factory.fingerprint import fingerprint, manifest  # noqa: E402
 
 args = [a for a in sys.argv[1:] if not a.startswith("--")]
+
+# Default to the room you are standing in. The Verifier runs with its cwd set to its
+# own room checkout, so requiring the id explicitly just cost it a wasted turn on
+# 23 Nov ("my first call without it printed usage only"). Infer it, and only ask when
+# the guess is impossible.
 if not args:
-    print("usage: fingerprint.py <room_id> [--files]", file=sys.stderr)
-    rooms = sorted(p.name for p in ROOMS.iterdir() if p.is_dir()) if ROOMS.is_dir() else []
-    print(f"seeded rooms: {rooms or 'none'}", file=sys.stderr)
-    raise SystemExit(2)
+    cwd = Path.cwd().resolve()
+    if cwd.parent == ROOMS.resolve():
+        args = [cwd.name]
+    else:
+        print("usage: fingerprint.py [room_id] [--files]", file=sys.stderr)
+        print("Run it from inside a room checkout and the id is inferred.", file=sys.stderr)
+        rooms = sorted(p.name for p in ROOMS.iterdir() if p.is_dir()) if ROOMS.is_dir() else []
+        print(f"seeded rooms: {rooms or 'none'}", file=sys.stderr)
+        raise SystemExit(2)
 
 workspace = ROOMS / args[0]
 if not workspace.is_dir():

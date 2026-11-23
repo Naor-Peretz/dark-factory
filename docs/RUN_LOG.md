@@ -262,3 +262,64 @@ or they will resume mid-conversation whenever the processes restart.
 - The fingerprint caught the corruption. It shifted exactly when two Builders touched
   one tree, which is precisely the case it was built for — detected on the very next
   run after it was added.
+
+---
+
+## Run 7 — 15:53 · a clean, legitimate SHIP
+
+The run the factory was built for. Chain:
+**Architect → Builder → Verifier → Gatekeeper → SHIP**, no human in the inner loop.
+
+Ground truth, checked independently afterwards: **10/10 acceptance, 12/12 repo tests**.
+This time the verdict was correct *and* well-evidenced.
+
+### What the Gatekeeper actually did
+
+- **Bound the verdict to a tree.** `WORKSPACE-FINGERPRINT: ec312b2feaa81d89` before and
+  after, clean `git status`. It said so explicitly before reading any result.
+- **Refused to re-ratify stale work.** The room still held a SHIP from an aborted
+  earlier cycle. It wrote: "This is fresh evidence, not a re-ratification of the
+  earlier 516251b cycle."
+- **Weighed evidence rather than counting it.** The line that matters most:
+
+  > the acceptance suite had 5 of 10 tests fail on baseline, which gives the real
+  > signal. The Builder's 7 new tests fail there only because of the missing `clock=`
+  > kwarg, so they are weak evidence.
+
+  It separated tests that fail on baseline *for the right reason* from tests that fail
+  for an incidental one, and discounted the author's own tests accordingly. That is the
+  vacuity check working at a level the prompt only gestured at.
+- **Checked the constraint literally.** The `login` handler body is byte-identical; the
+  only removed line is the `create_app` signature becoming multi-line.
+- **Listed "caveats that didn't block".** Proportionate judgment, not blocking on
+  everything it could not see.
+
+The Verifier also ran a concurrency probe nobody asked for: 200 requests across 10
+threads with a budget of 50, giving exactly 50 non-429 and 150 429.
+
+And the Architect, closing the loop to the human, wrote: "I haven't checked this myself.
+The results below are the Verifier's and Gatekeeper's." Correct attribution of what it
+knew versus what it was told.
+
+### Two fixes this run produced
+
+- **Stale processes hold Band's single-instance lock.** The Architect and Gatekeeper
+  died at startup with `AgentAlreadyRunningError` because a prior launch had survived
+  and the pid files only knew the last one. `stop_factory.sh` now sweeps by process
+  pattern and clears `/tmp/band-agent-*.lock`.
+- **`fingerprint.py` required a room id**, so the Verifier's first call printed usage
+  and wasted a turn. It now infers the room from the working directory, which is where
+  the Verifier already stands.
+
+### Gemini was down
+
+The Gatekeeper ran on Claude for this one. Gemini returned 503/504 across 3.8-flash,
+3.5-flash and 3.7-flash ("this model is currently experiencing high demand") — Google
+capacity, not configuration. The key authenticates and the adapter connects, verified
+earlier. `.env` carries `ADAPTER_GATEKEEPER=claude` with the gemini line commented
+directly above it; flip it back when the API recovers.
+
+### Recording
+
+`runs/factory.gif` — six frames of the room filling up, kickoff to verdict, built with
+Pillow (no ffmpeg needed) via `scripts/make_gif.py`.
