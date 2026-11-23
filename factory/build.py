@@ -51,14 +51,41 @@ def adapter_for(role: Role, prompt: str):
         if role.writes_code:
             WORKSPACE.mkdir(parents=True, exist_ok=True)
             cfg["cwd"] = WORKSPACE
+            # acceptEdits covers file writes but NOT shell commands, so every
+            # `pytest` was refused with "This command requires approval" -- and an
+            # unattended agent has nobody to approve it. Observed live on 23 Nov: the
+            # Verifier correctly refused to pass work it could not test, and the whole
+            # factory stalled. Only the two roles that must execute things get this.
+            from band.adapters.claude_sdk import ClaudeApprovalOptions, ClaudeCLIOptions
+
+            # Put the project venv first on PATH. Without it `python -m pytest` finds a
+            # system interpreter with no flask installed. The Verifier recovered on its
+            # own (tried python3, then located .venv) but burned three turns doing it.
+            env = {
+                "PATH": f"{REPO_ROOT / '.venv' / 'bin'}:{os.environ.get('PATH', '')}",
+                "VIRTUAL_ENV": str(REPO_ROOT / ".venv"),
+            }
+            cli_kw: dict = {"env": env}
+            if role.key == "verifier":
+                cli_kw["add_dirs"] = (str(ACCEPTANCE),)
+            cfg["cli"] = ClaudeCLIOptions(**cli_kw)
+
+            cfg["approvals"] = ClaudeApprovalOptions(
+                mode="auto_accept",
+                wait_timeout_s=120.0,       # below turn_timeout_s; waits count toward it
+                timeout_decision="decline",
+                # CRITICAL. With the default True, every auto-accepted approval is ALSO
+                # posted into the room as "Approval requested (Bash: ...)" addressed to
+                # another agent. That agent reasonably answers "I can't approve that",
+                # which re-triggers the first -- a two-agent loop that produced 7
+                # consecutive band_no_reply turns and burned real money on 23 Nov
+                # before it was killed. Auto-accepted approvals need no audience.
+                text_notifications=False,
+            )
         # Non-coding roles get NO cwd, so the adapter gives each its own empty
         # .band-workspaces/<room_id>. That is the real boundary: the Architect and
         # Gatekeeper cannot reach the Builder's checkout because it is not theirs,
         # not because their tools are switched off.
-        if role.key == "verifier":
-            from band.adapters.claude_sdk import ClaudeCLIOptions
-
-            cfg["cli"] = ClaudeCLIOptions(add_dirs=(str(ACCEPTANCE),))
         return ClaudeSDKAdapter(ClaudeSDKAdapterConfig(**cfg), emit=EMIT_ALL)
 
     if kind == "codex":

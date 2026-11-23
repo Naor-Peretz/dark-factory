@@ -314,3 +314,49 @@ def test_non_coding_roles_get_no_repo_access():
     for role in (BUILDER, VERIFIER):
         cfg = build_mod.adapter_for(role, "prompt").config
         assert cfg.cwd == build_mod.WORKSPACE, f"{role.name} needs the repo checkout"
+
+
+def test_executing_roles_can_run_commands_unattended():
+    """Regression from the second live run.
+
+    `acceptEdits` auto-approves file writes but NOT shell commands, so every pytest
+    call came back "This command requires approval" -- and an unattended agent has
+    nobody to approve it. The Verifier behaved correctly (it refused to pass work it
+    could not test) and the factory stalled, which is the right failure but still a
+    stall. Roles that must execute things need auto_accept.
+    """
+    from factory import build as build_mod
+    from factory.roles import ARCHITECT, BUILDER, GATEKEEPER, VERIFIER
+
+    for role in (BUILDER, VERIFIER):
+        cfg = build_mod.adapter_for(role, "prompt").config
+        assert cfg.approvals is not None, f"{role.name} must be able to run commands"
+        assert cfg.approvals.mode == "auto_accept"
+        assert cfg.approvals.wait_timeout_s < cfg.turn_timeout_s, (
+            "an approval wait counts toward the turn timeout, so it must be shorter"
+        )
+
+    for role in (ARCHITECT, GATEKEEPER):
+        cfg = build_mod.adapter_for(role, "prompt").config
+        assert cfg.approvals is None, (
+            f"{role.name} does not execute anything; it should not auto-approve"
+        )
+
+
+def test_auto_accepted_approvals_are_not_announced_in_the_room():
+    """Regression from the third live run: the approval-notification loop.
+
+    auto_accept still posts "Approval requested (Bash: ...)" into the room by default,
+    addressed to another agent. That agent answers "I can't approve that", which
+    re-triggers the first. Observed: a Builder/Architect ping-pong, 7 consecutive
+    band_no_reply turns, and no progress. An approval that is auto-accepted has no
+    audience and must stay silent.
+    """
+    from factory import build as build_mod
+    from factory.roles import BUILDER, VERIFIER
+
+    for role in (BUILDER, VERIFIER):
+        cfg = build_mod.adapter_for(role, "prompt").config
+        assert cfg.approvals.text_notifications is False, (
+            f"{role.name} would announce every auto-accepted approval into the room"
+        )

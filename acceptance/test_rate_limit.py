@@ -90,3 +90,36 @@ def test_limiting_is_per_ip_not_global(client):
     for ip in ("10.0.0.2", "10.0.0.3", "10.0.0.4"):
         codes = hammer(client, 1, ip=ip)
         assert codes[0] != 429, f"{ip} throttled by another IP's traffic -- shared bucket"
+
+
+# --- added after the Gatekeeper's finding 3, 23 Nov ---------------------------
+#
+# The Gatekeeper blocked a 7/7 run and was right: every test above builds the app
+# with window_seconds=1, so NOTHING here proved create_app's real defaults. The
+# criteria are stated for the default configuration (10 requests / 60s), and the
+# oracle never touched it. A gap in the checker, found by the critic.
+
+
+def test_default_configuration_is_ten_requests_per_sixty_seconds():
+    """Criteria 1 and 2 are stated for the DEFAULT config, not a 1s test window."""
+    app = create_app()
+    assert app.config["WINDOW_SECONDS"] == 60, "default window must be 60s"
+    assert app.config["MAX_REQUESTS"] == 10, "default budget must be 10 requests"
+
+
+def test_eleventh_request_is_throttled_under_the_real_defaults():
+    """Exercise criterion 1 against create_app() with no arguments at all."""
+    client = create_app().test_client()
+    codes = hammer(client, 11, ip="10.9.9.1")
+    assert 429 not in codes[:10], f"first 10 must not be throttled by default: {codes}"
+    assert codes[10] == 429, f"11th must be 429 under defaults, got {codes[10]}"
+
+
+def test_retry_after_is_plausible_under_the_real_defaults():
+    client = create_app().test_client()
+    hammer(client, 10, ip="10.9.9.2")
+    r = client.post("/login", json=BAD, environ_base={"REMOTE_ADDR": "10.9.9.2"})
+    assert r.status_code == 429
+    value = r.headers.get("Retry-After", "")
+    assert value.isdigit(), f"Retry-After must be whole seconds, got {value!r}"
+    assert 0 < int(value) <= 60, f"must fall inside the 60s default window, got {value}"
