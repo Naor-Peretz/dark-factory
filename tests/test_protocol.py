@@ -658,3 +658,25 @@ def test_architect_has_a_shell_but_no_checkout():
 
     gate = build_mod.adapter_for(GATEKEEPER, "prompt")
     assert gate.config.approvals is None, "the Gatekeeper rules on evidence only"
+
+
+def test_memory_command_carries_an_absolute_interpreter():
+    """A bare `python` cost the Architect three turns hunting for the venv, after
+    which it gave up and planned without consulting memory at all."""
+    from factory import prompts
+    from factory.roles import ARCHITECT
+
+    p = prompts.build(ARCHITECT)
+    assert ".venv/bin/python /" in p, "the command must name the interpreter outright"
+    assert "python $MEMORY_CMD" not in p, "no bare python prefix should remain"
+
+
+def test_architect_must_report_what_memory_said():
+    """Without a required section there is no way to distinguish 'checked, nothing
+    there' from 'forgot to check' -- and the first run did exactly the latter."""
+    from factory import prompts
+    from factory.roles import ARCHITECT
+
+    p = prompts.build(ARCHITECT)
+    assert "[MEMORY/<role>]" in p, "lessons must be cited beside what they produced"
+    assert "none on record" in p, "an empty recall must still be stated explicitly"

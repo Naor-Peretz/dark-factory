@@ -323,3 +323,41 @@ directly above it; flip it back when the API recovers.
 
 `runs/factory.gif` — six frames of the room filling up, kickoff to verdict, built with
 Pillow (no ffmpeg needed) via `scripts/make_gif.py`.
+
+---
+
+## Run 8 — 16:13 · the memory loop closes
+
+cognee wired in as the factory's memory across cycles. First attempt, the Architect
+explored the tooling, probed for the virtualenv, gave up and planned without consulting
+memory at all. Two fixes: the prompt now names the interpreter outright
+(`/…/.venv/bin/python /…/scripts/memory.py`) instead of a bare `python`, and recall is
+step one of the turn rather than a section further down.
+
+Second attempt it worked, and the result is better than the instruction asked for.
+
+**The Architect turned remembered lessons into new acceptance criteria.** The spec went
+from 7 criteria to 10, and each addition traces to something the factory learned earlier
+the same day:
+
+| New criterion | The lesson behind it |
+|---|---|
+| 9. `create_app()` with **no arguments** throttles the 11th request | "an acceptance suite that only exercises a short test window never checks the production defaults" |
+| 10. new tests "must fail on the baseline **for behavioural reasons**, not only because of an unknown kwarg" | "tests that pass on the baseline prove nothing; a test failing only on a changed signature is weak evidence" |
+| 6. now proved in "a fresh `git worktree` at the baseline commit" | "a clean-checkout criterion is unprovable unless the workspace has a baseline commit" |
+
+Criterion 10 is the striking one. The Gatekeeper worked out the strong-versus-weak
+evidence distinction on its own in run 7, that reasoning was stored as a lesson, and in
+run 8 the Architect promoted it to a requirement the Builder must satisfy up front. The
+crew's judgment became part of the spec.
+
+It also cited each lesson inline as `[MEMORY/architect]` beside the criterion it
+produced, rather than using the separate `### Prior lessons` section the prompt asked
+for. That is the better shape — it shows why a requirement exists instead of leaving a
+reader to guess — so the prompt was changed to match the agent rather than the reverse.
+
+### Why cognee here is not a sponsor sticker
+
+Band's `Capability.MEMORY` is Enterprise-only, so without this the crew genuinely starts
+every run cold. The gap is real, and what fills it is doing real work: the factory now
+arrives at a cycle already knowing what tripped it last time.
