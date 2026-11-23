@@ -218,3 +218,47 @@ times — once finding a hole in the acceptance oracle, once finding that a crit
 unmeasurable. Neither was a code defect. Both were defects in how the work was being
 *proved*, which is exactly what a gate is for and exactly what a crew of agents
 agreeing with each other would have waved through.
+
+---
+
+## Run 6 — 15:36 · two rooms, one checkout
+
+First run with the Gemini Gatekeeper. It connected and the cross-family crew was real:
+three Claude agents and one Gemini judge, all local processes.
+
+The run was ruined by something I had read about and then walked into anyway.
+
+An agent joins **every** room it is a participant of. Both older rooms still had
+unprocessed messages, so on restart the agents resumed those cycles *as well as* the
+new one. And because the coding roles were configured with an explicit `cwd`, every
+room shared **one checkout**. Two Builders were editing the same files at the same
+time. The fingerprint shifted from `341c4568…` to `e1578809…` mid-run.
+
+The Band docs say it plainly: two rooms sharing `cwd` edit the same checkout. I set
+`cwd` for the convenience of a fixed path and lost room isolation in exchange.
+
+### Fix: one checkout per room
+
+`workspace_for_room=create_room_workspace_resolver(workspace/rooms)` replaces `cwd`,
+so every room gets `workspace/rooms/<room_id>`. The two are mutually exclusive, which
+is the SDK telling you to choose isolation or convenience.
+
+- `scripts/seed_workspace.py <room_id>` seeds one room and gives it a baseline commit.
+- `scripts/fingerprint.py <room_id>` hashes that room's checkout.
+- The Verifier derives its room from its own working directory:
+  `python scripts/fingerprint.py "$(basename "$PWD")"`.
+
+Architect and Gatekeeper still get no checkout at all.
+
+A stale room can now churn harmlessly in its own directory. It still costs tokens, so
+the operational lesson stands: **remove the agents from rooms you are finished with**,
+or they will resume mid-conversation whenever the processes restart.
+
+### What this run did confirm
+
+- The Gemini Gatekeeper starts, holds its WebSocket and joins rooms. No auth or quota
+  errors from the free tier.
+- The crew is genuinely cross-family now: the judge is not the author's model.
+- The fingerprint caught the corruption. It shifted exactly when two Builders touched
+  one tree, which is precisely the case it was built for — detected on the very next
+  run after it was added.

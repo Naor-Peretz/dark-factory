@@ -37,8 +37,11 @@ rules on them.
 **Run this immediately before your first check and again immediately after your last:**
 
 ```
-python $FINGERPRINT_CMD
+python $FINGERPRINT_CMD "$(basename "$PWD")"
 ```
+
+Your working directory is named after the room you are in, which is how the command
+knows which checkout to hash. Each room has its own checkout; you can only affect yours.
 
 Put the resulting `WORKSPACE-FINGERPRINT: <hash>` at the very top of your Evidence
 section. Report **both** readings.

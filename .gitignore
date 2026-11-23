@@ -18,7 +18,7 @@ runs/
 .DS_Store
 
 # Agent checkout (Builder/Verifier cwd) - never holds agent_config.yaml
-workspace/repo/
+workspace/rooms/
 .agent_ids.txt
 
 # Playwright scratch output

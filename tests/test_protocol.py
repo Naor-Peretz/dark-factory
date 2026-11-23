@@ -8,6 +8,7 @@ and the one property that makes it not fall over: context survives every hop.
 
 from __future__ import annotations
 
+import pathlib
 import sys
 from pathlib import Path
 
@@ -259,12 +260,12 @@ def test_only_the_verifier_can_reach_the_acceptance_oracle():
         assert acceptance not in other, f"{role.name} must not learn the oracle's path"
 
 
-def test_acceptance_oracle_lives_outside_the_builders_checkout():
-    from factory.build import ACCEPTANCE, WORKSPACE
+def test_acceptance_oracle_lives_outside_every_room_checkout():
+    from factory.build import ACCEPTANCE, ROOMS
 
     assert ACCEPTANCE.exists(), "the oracle must exist"
-    assert WORKSPACE not in ACCEPTANCE.parents and ACCEPTANCE != WORKSPACE, (
-        "the oracle must not be inside the Builder's cwd, or the Builder could edit it"
+    assert ROOMS not in ACCEPTANCE.parents and ACCEPTANCE != ROOMS, (
+        "the oracle must sit outside the room checkouts, or a Builder could edit it"
     )
 
 
@@ -303,8 +304,14 @@ def test_non_coding_roles_get_no_repo_access():
     from factory import build as build_mod
     from factory.roles import ARCHITECT, BUILDER, GATEKEEPER, VERIFIER
 
+    import shutil
+
     for role in (ARCHITECT, GATEKEEPER):
-        cfg = build_mod.adapter_for(role, "prompt").config
+        adapter = build_mod.adapter_for(role, "prompt")
+        cfg = adapter.config
+        assert adapter._workspaces._resolver is None, (
+            f"{role.name} must get no room checkout at all"
+        )
         assert cfg.cwd is None, (
             f"{role.name} must have no cwd, so the adapter gives it an isolated "
             f"per-room workspace instead of the repo"
@@ -312,8 +319,19 @@ def test_non_coding_roles_get_no_repo_access():
         assert not getattr(cfg.cli, "add_dirs", ()), f"{role.name} must get no extra dirs"
 
     for role in (BUILDER, VERIFIER):
-        cfg = build_mod.adapter_for(role, "prompt").config
-        assert cfg.cwd == build_mod.WORKSPACE, f"{role.name} needs the repo checkout"
+        adapter = build_mod.adapter_for(role, "prompt")
+        cfg = adapter.config
+        assert cfg.cwd is None, (
+            f"{role.name} must use a per-room resolver, not a shared cwd: one cwd is "
+            f"shared across every room the agent joins, so two rooms collide"
+        )
+        resolver = adapter._workspaces._resolver
+        assert resolver is not None, f"{role.name} needs a per-room workspace resolver"
+        path = pathlib.Path(resolver("room-test"))
+        assert path.parent == build_mod.ROOMS and path.name == "room-test", (
+            f"{role.name} must resolve into workspace/rooms/<room_id>, got {path}"
+        )
+        shutil.rmtree(path, ignore_errors=True)
 
 
 def test_executing_roles_can_run_commands_unattended():
@@ -427,14 +445,26 @@ def test_seeded_workspace_has_a_baseline_commit(tmp_path):
     history at all.
     """
     import subprocess
+    import sys
 
-    from factory.build import WORKSPACE
+    from factory.build import REPO_ROOT, ROOMS
 
-    assert (WORKSPACE / ".git").is_dir(), "seed_workspace.py must create a git baseline"
-    log = subprocess.run(
-        ["git", "log", "--oneline"], cwd=WORKSPACE, capture_output=True, text=True
+    room = "test-room-baseline"
+    subprocess.run(
+        [sys.executable, str(REPO_ROOT / "scripts" / "seed_workspace.py"), room],
+        cwd=REPO_ROOT, capture_output=True, text=True, check=True,
     )
-    assert log.returncode == 0 and log.stdout.strip(), "baseline commit missing"
+    ws = ROOMS / room
+    try:
+        assert (ws / ".git").is_dir(), "seeding must create a git baseline"
+        log = subprocess.run(
+            ["git", "log", "--oneline"], cwd=ws, capture_output=True, text=True
+        )
+        assert log.returncode == 0 and log.stdout.strip(), "baseline commit missing"
+        assert (ws / "app.py").is_file(), "the target must be copied in"
+    finally:
+        import shutil
+        shutil.rmtree(ws, ignore_errors=True)
 
 
 def test_verifier_knows_how_to_prove_clean_checkout_and_no_diff():

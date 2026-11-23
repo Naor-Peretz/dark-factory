@@ -17,7 +17,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from band import Emit
+from band import Emit, create_room_workspace_resolver
 
 from .roles import Role
 
@@ -26,6 +26,12 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 # agent_config.yaml, or Claude Code can read the API key and a tool result can
 # post it into the room.
 WORKSPACE = REPO_ROOT / "workspace" / "repo"
+# One checkout per room, under here. Setting `cwd` instead shares a SINGLE checkout
+# across every room the agent belongs to -- and an agent joins all of them. Observed
+# live on 23 Nov: a stale room resumed on restart and ran a second cycle concurrently
+# with the real one, two Builders editing the same files, and the fingerprint shifted
+# mid-run. `cwd` and `workspace_for_room` are mutually exclusive; prefer the latter.
+ROOMS = REPO_ROOT / "workspace" / "rooms"
 # The Verifier's independent oracle. Deliberately OUTSIDE the Builder's cwd: a critic
 # that can read the author's tests is not an independent check, and one that can edit
 # them is no check at all. Supplied to the Verifier alone via the CLI's add_dirs.
@@ -89,8 +95,7 @@ def adapter_for(role: Role, prompt: str):
         # 23 Nov: "Cannot call mcp__band__band_send_message while in plan mode."
         cfg["permission_mode"] = "acceptEdits"
         if role.writes_code:
-            WORKSPACE.mkdir(parents=True, exist_ok=True)
-            cfg["cwd"] = WORKSPACE
+            ROOMS.mkdir(parents=True, exist_ok=True)
             # acceptEdits covers file writes but NOT shell commands, so every
             # `pytest` was refused with "This command requires approval" -- and an
             # unattended agent has nobody to approve it. Observed live on 23 Nov: the
@@ -122,11 +127,16 @@ def adapter_for(role: Role, prompt: str):
                 # before it was killed. Auto-accepted approvals need no audience.
                 text_notifications=False,
             )
-        # Non-coding roles get NO cwd, so the adapter gives each its own empty
-        # .band-workspaces/<room_id>. That is the real boundary: the Architect and
-        # Gatekeeper cannot reach the Builder's checkout because it is not theirs,
-        # not because their tools are switched off.
-        return ClaudeSDKAdapter(ClaudeSDKAdapterConfig(**cfg), emit=EMIT_ALL)
+        # Non-coding roles get neither cwd nor a resolver, so the adapter gives each
+        # its own empty .band-workspaces/<room_id>. That is the real boundary: the
+        # Architect and Gatekeeper cannot reach the Builder's checkout because it is
+        # not theirs, not because their tools are switched off.
+        resolver = create_room_workspace_resolver(ROOMS) if role.writes_code else None
+        return ClaudeSDKAdapter(
+            ClaudeSDKAdapterConfig(**cfg),
+            workspace_for_room=resolver,
+            emit=EMIT_ALL,
+        )
 
     if kind == "codex":
         from band.adapters import CodexAdapter, CodexAdapterConfig
