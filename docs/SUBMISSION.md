@@ -41,13 +41,18 @@ Fields:
 | `PROJECT.README` | free text description |
 | `PROJECT.STACK` | checkboxes: **Band**, **cognee**, plus free-text "other stack" |
 | `TEAM.ROSTER` | pulled from the Team tab; solo = empty |
-| `GIT.REMOTE` | **a GitHub URL is required.** "Save your project to check this repository. The check runs in the background and does not block submission." |
+| `GIT.REMOTE` | **a GitHub URL is required.** "Save your project to check this repository. The check runs in the background and does not block submission." → **https://github.com/Naor-Peretz/dark-factory** (public, pushed 23 Nov) |
 | `PRE-EXISTING CODE` | optional: "did you start with an existing project, fork, or template? Tell judges what already existed and what your team built during this hackathon." |
 | consent checkbox | judging partners may contact by email |
 
 ## Three things this forces
 
-1. **A public GitHub repo.** We are local-only with no remote. Must push.
+1. ~~**A public GitHub repo.**~~ ✅ **https://github.com/Naor-Peretz/dark-factory** —
+   created and pushed 23 Nov. Commits use the GitHub `noreply` address rather than the
+   account's private email, because GitHub's email-privacy protection (GH007) rejects
+   pushes that would expose it; the alternative was making the address public, which is
+   worse. Verified before publishing: no secrets tracked, `agent_config.yaml` / `.env` /
+   `.agent_ids.txt` all ignored.
 2. **A video demo. Mandatory — it blocks submission.** Not a nice-to-have. This is the
    artifact that has to show the room: four agents, the dependent handoff, a blocked
    verdict. Budget real time for it before Friday sundown.
