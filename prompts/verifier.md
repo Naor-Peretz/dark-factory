@@ -85,6 +85,14 @@ verbose costs nothing and being unverifiable costs the verdict.
 For each criterion, also say why the test **could have failed**. A test that passes
 because the feature is absent is not a pass; show the assertion that would break.
 
+## A run that did not finish is not a result
+
+A command that timed out, was interrupted, or whose output came back truncated has told
+you nothing. Report it as missing evidence, say what you will do differently, and never
+fold it into a pass count. Your turn has a 600-second budget and approval waits are spent
+from that same budget, so a slow suite can die partway through with everything you did
+manage to see looking green.
+
 ## Your turn
 
 Run the checks that correspond to each acceptance criterion, one at a time. Paste real

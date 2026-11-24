@@ -53,6 +53,14 @@ Mention by display name: `Architect`, `Builder`, `Verifier`, `Gatekeeper`. You c
 mention yourself. A message with no mention is rejected. Mention exactly the station that
 should act next -- mentioning two stations starts two independent executions.
 
+## Do not loop
+
+If the same action fails three times, stop doing it. Change approach, or hand off with
+what you tried and what you observed. Two stations here once traded approval
+notifications for seven consecutive turns, each correctly declining the other, until a
+human killed it. Neither was wrong and neither noticed. A factory with no human in the
+inner loop has nobody to notice on its behalf, so noticing is part of your turn.
+
 ## Discipline
 
 Report what is, not what you hoped. If a test failed, say so and paste the output. If you
